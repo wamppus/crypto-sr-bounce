@@ -27,3 +27,4 @@ config.local.py
 # OS
 .DS_Store
 Thumbs.db
+.env

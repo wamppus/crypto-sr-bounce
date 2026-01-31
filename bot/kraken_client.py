@@ -97,6 +97,7 @@ class KrakenClient:
     ) -> Tuple[bool, Any]:
         """Make API request"""
         url = f"{self.base_url}{endpoint}"
+        params = params or {}
         
         try:
             if method == 'GET':
@@ -104,7 +105,7 @@ class KrakenClient:
             else:
                 headers = {}
                 if private:
-                    headers = self._sign_request(endpoint, params or {})
+                    headers = self._sign_request(endpoint, params)
                 resp = self.session.post(url, data=params, headers=headers, timeout=30)
             
             resp.raise_for_status()
