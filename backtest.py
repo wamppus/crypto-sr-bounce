@@ -529,17 +529,26 @@ def main():
     print("Ported from ES V3 with crypto adaptations")
     print("="*60)
     
-    # Check for data
-    data_path = 'data/BTCUSDT_5m_365d.csv'
+    # Check for data - prefer hourly for more history
+    data_files = [
+        ('data/BTCUSD_1h_730d.csv', 'BTC'),
+        ('data/ETHUSD_1h_730d.csv', 'ETH'),
+    ]
     
-    if not os.path.exists(data_path):
-        print(f"\n⚠️  No data found at {data_path}")
-        print("\nTo fetch data, run:")
-        print("  pip install ccxt")
-        print("  python -m bot.data --symbol BTC/USDT --timeframe 5m --days 365")
-        print("\nOr provide your own CSV with columns: timestamp, open, high, low, close, volume")
-        return
-    
+    for data_path, symbol in data_files:
+        if not os.path.exists(data_path):
+            print(f"\n⚠️  No data found at {data_path}")
+            continue
+        
+        print(f"\n{'='*60}")
+        print(f"BACKTESTING {symbol}")
+        print(f"{'='*60}")
+        
+        run_single_backtest(data_path, symbol)
+
+
+def run_single_backtest(data_path: str, symbol: str):
+    """Run backtest for a single asset"""
     print(f"\nLoading data from {data_path}...")
     from data import load_data
     df = load_data(data_path)
@@ -548,27 +557,49 @@ def main():
     print(f"Range: {df['timestamp'].min()} to {df['timestamp'].max()}")
     print(f"Price: ${df['close'].iloc[0]:,.0f} → ${df['close'].iloc[-1]:,.0f}")
     
-    # Run with validated config
-    print(f"\nConfig: {VALIDATED_CONFIG}")
+    # Adjusted config for hourly timeframe
+    hourly_config = StrategyConfig(
+        sr_lookback=24,        # 24 hours of S/R
+        trend_lookback=72,     # 3 days for trend
+        atr_period=24,
+        stop_atr_mult=1.5,
+        target_atr_mult=2.0,
+        trail_activation_atr=1.0,
+        trail_distance_atr=0.3,
+        max_hold_bars=24,      # Max 24 hours
+        min_gap_bars=6,        # 6 hour gap between trades
+        rsi_exit_high=65,
+        rsi_exit_low=35,
+        use_trailing_stop=True,
+        use_round_number_sr=True,
+    )
     
-    trades, stats = run_backtest(df, VALIDATED_CONFIG)
-    result = analyze(trades, "VALIDATED CONFIG (V3 Port)", stats)
+    print(f"\nConfig (hourly): sr_lookback={hourly_config.sr_lookback}, trend_lookback={hourly_config.trend_lookback}")
     
-    # Compare with/without trailing stop
-    if result:
-        print(f"\n{'='*60}")
-        print("TRAILING STOP COMPARISON")
-        print(f"{'='*60}")
-        
-        no_trail_config = StrategyConfig(use_trailing_stop=False)
-        trades_nt, stats_nt = run_backtest(df, no_trail_config)
-        result_nt = analyze(trades_nt, "NO TRAILING (baseline)", stats_nt)
-        
-        if result_nt:
-            print(f"\n📊 Trail Impact:")
-            print(f"  Win Rate: {result_nt['wr']:.1f}% → {result['wr']:.1f}%")
-            print(f"  P&L: ${result_nt['pnl_usd']:,.0f} → ${result['pnl_usd']:,.0f}")
-            print(f"  PF: {result_nt['pf']:.2f} → {result['pf']:.2f}")
+    # Run with trailing stop
+    trades, stats = run_backtest(df, hourly_config)
+    result = analyze(trades, f"{symbol} WITH TRAILING (runner mode)", stats)
+    
+    # Compare without trailing
+    no_trail_config = StrategyConfig(
+        sr_lookback=24,
+        trend_lookback=72,
+        atr_period=24,
+        stop_atr_mult=1.5,
+        target_atr_mult=2.0,
+        max_hold_bars=24,
+        min_gap_bars=6,
+        use_trailing_stop=False,  # Key difference
+    )
+    
+    trades_nt, stats_nt = run_backtest(df, no_trail_config)
+    result_nt = analyze(trades_nt, f"{symbol} NO TRAILING (baseline)", stats_nt)
+    
+    if result and result_nt:
+        print(f"\n📊 {symbol} Trail Impact:")
+        print(f"  Win Rate: {result_nt['wr']:.1f}% → {result['wr']:.1f}%")
+        print(f"  P&L: ${result_nt['pnl_usd']:,.0f} → ${result['pnl_usd']:,.0f}")
+        print(f"  PF: {result_nt['pf']:.2f} → {result['pf']:.2f}")
 
 
 if __name__ == '__main__':
