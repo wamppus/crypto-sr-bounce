@@ -23,6 +23,8 @@ from config import StrategyConfig
 
 def get_dot_status():
     """Get current DOT trading status"""
+    from config import DOT_OPTIMIZED
+    
     client = KrakenClient(
         api_key=os.environ.get('KRAKEN_API_KEY'),
         api_secret=os.environ.get('KRAKEN_API_SECRET'),
@@ -147,6 +149,14 @@ def show_status():
     dist_res = (status['resistance'] - status['price']) / status['price'] * 100
     print(f"   Distance to support:    {dist_sup:.1f}%")
     print(f"   Distance to resistance: {dist_res:.1f}%")
+    
+    # Check if Friday (skip day)
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).weekday()
+    if today == 4:
+        print("⚠️  FRIDAY - No trades (skip day)")
+        print()
+        return
     
     print()
     if status['signal']:

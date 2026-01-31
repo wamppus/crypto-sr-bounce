@@ -1,7 +1,7 @@
 """
 Crypto S/R Bounce - Configuration
 
-Adapted from ES V3 with crypto-specific parameters.
+Optimized for DOT trading on Kraken.
 """
 
 from dataclasses import dataclass, field
@@ -12,64 +12,84 @@ class StrategyConfig:
     """Core strategy parameters"""
     
     # S/R Detection
-    sr_lookback: int = 24  # Bars to look back for S/R levels
-    sr_tolerance_pct: float = 0.1  # How close to S/R to trigger (% of price)
+    sr_lookback: int = 16  # 16h lookback (optimized for DOT)
+    sr_tolerance_pct: float = 0.1
     
     # Trend Filter
-    trend_lookback: int = 72  # Bars for trend detection
+    trend_lookback: int = 72  # 3 day trend
     use_trend_filter: bool = True
     
     # Contrarian (when no trend)
-    ct_bars: int = 2  # Look back for contrarian direction
+    ct_bars: int = 2
     use_ct_filter: bool = True
     
-    # ATR-Based Stops (key difference from ES)
-    atr_period: int = 14
-    stop_atr_mult: float = 2.0  # Stop at 2x ATR
-    target_atr_mult: float = 4.0  # Target at 4x ATR (2:4 R:R)
+    # ATR-Based Stops
+    atr_period: int = 24
+    stop_atr_mult: float = 2.5   # 2.5x ATR stop (optimized)
+    target_atr_mult: float = 3.0  # 3x ATR target (optimized)
     
-    # Runner Mode (optional - works for some coins)
+    # Trailing (disabled for DOT)
     use_trailing_stop: bool = False
-    trail_activation_atr: float = 1.5  # Activate trail at 1.5x ATR profit
-    trail_distance_atr: float = 0.5  # Trail 0.5x ATR behind
+    trail_activation_atr: float = 1.5
+    trail_distance_atr: float = 0.5
     
     # Time Exit
-    max_hold_bars: int = 48  # Max bars to hold
-    min_gap_bars: int = 6  # Min bars between trades
+    max_hold_bars: int = 24  # 24h max hold (optimized)
+    min_gap_bars: int = 6
     
     # RSI Exit
     rsi_period: int = 14
-    rsi_exit_high: float = 70.0  # Exit longs above this
-    rsi_exit_low: float = 30.0  # Exit shorts below this
+    rsi_exit_high: float = 60.0  # Tighter (optimized)
+    rsi_exit_low: float = 40.0   # Tighter (optimized)
+    
+    # Day Filter
+    skip_days: List[int] = field(default_factory=lambda: [4])  # Skip Friday (day 4)
     
     # Session Filters (optional)
     use_session_filter: bool = False
     allowed_sessions: List[str] = field(default_factory=lambda: ['europe', 'us', 'overlap'])
     
-    # Round Number S/R (crypto-specific)
+    # Round Number S/R
     use_round_number_sr: bool = False
     round_number_weight: float = 0.5
     
-    # Risk (for position sizing)
-    risk_per_trade_pct: float = 1.0  # Risk 1% per trade
-
-
-@dataclass
-class RiskConfig:
-    """Risk management parameters"""
-    
-    # Position sizing
-    risk_per_trade_pct: float = 1.0  # Risk 1% of account per trade
-    max_positions: int = 1  # Only one position at a time
-    
-    # Daily limits
-    max_daily_loss_pct: float = 3.0  # Stop trading after 3% daily loss
-    max_daily_trades: int = 10
+    # Risk
+    risk_per_trade_pct: float = 1.0
 
 
 # === OPTIMIZED CONFIGS ===
 
-# Best for BTC (from 2-year backtest)
+# BEST CONFIG FOR DOT (from deep optimization)
+# 90-day backtest: +109% P&L, 70% WR, 3.75 PF
+DOT_OPTIMIZED = StrategyConfig(
+    sr_lookback=16,         # 16h S/R
+    trend_lookback=72,
+    atr_period=24,
+    stop_atr_mult=2.5,      # Wider stop
+    target_atr_mult=3.0,    # Tighter target (2.5:3 R:R)
+    max_hold_bars=24,       # 24h max hold
+    min_gap_bars=6,
+    rsi_exit_high=60,       # Tighter
+    rsi_exit_low=40,        # Tighter
+    skip_days=[4],          # Skip Friday!
+    use_trailing_stop=False,
+)
+
+# Previous DOT config (still good)
+DOT_CONFIG = StrategyConfig(
+    sr_lookback=12,
+    trend_lookback=72,
+    atr_period=24,
+    stop_atr_mult=2.0,
+    target_atr_mult=4.0,
+    max_hold_bars=48,
+    min_gap_bars=6,
+    rsi_exit_high=60,
+    rsi_exit_low=40,
+    use_trailing_stop=False,
+)
+
+# BTC config (different characteristics)
 BTC_CONFIG = StrategyConfig(
     sr_lookback=24,
     trend_lookback=72,
@@ -81,40 +101,8 @@ BTC_CONFIG = StrategyConfig(
     rsi_exit_high=70,
     rsi_exit_low=30,
     use_trailing_stop=False,
-    use_round_number_sr=False,
 )
 
-# Best for DOT (from optimization)
-DOT_CONFIG = StrategyConfig(
-    sr_lookback=12,       # Shorter - DOT moves faster
-    trend_lookback=72,
-    atr_period=24,
-    stop_atr_mult=2.0,
-    target_atr_mult=4.0,
-    max_hold_bars=48,
-    min_gap_bars=6,
-    rsi_exit_high=60,     # Tighter RSI exits
-    rsi_exit_low=40,      # Tighter RSI exits
-    use_trailing_stop=False,
-    use_round_number_sr=False,
-)
-
-# DOT with trailing (alternative - higher WR, slightly less P&L)
-DOT_TRAIL_CONFIG = StrategyConfig(
-    sr_lookback=12,
-    trend_lookback=72,
-    atr_period=24,
-    stop_atr_mult=2.0,
-    target_atr_mult=4.0,
-    max_hold_bars=48,
-    min_gap_bars=6,
-    rsi_exit_high=60,
-    rsi_exit_low=40,
-    use_trailing_stop=True,
-    trail_activation_atr=1.5,
-    trail_distance_atr=0.5,
-)
-
-# Default
-DEFAULT_CONFIG = DOT_CONFIG
-VALIDATED_CONFIG = DOT_CONFIG
+# Default = best DOT config
+DEFAULT_CONFIG = DOT_OPTIMIZED
+VALIDATED_CONFIG = DOT_OPTIMIZED
