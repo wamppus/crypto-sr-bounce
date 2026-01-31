@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'bot'))
 
 from strategy import LiveStrategy, BarData
-from exchange_client import HyperliquidClient
+from kraken_client import KrakenClient
 from config import StrategyConfig
 
 
@@ -72,11 +72,8 @@ def run_shadow(coin: str = 'BTC', interval_minutes: int = 5):
     print(f"Check interval: {interval_minutes} minutes")
     print("="*60)
     
-    # Initialize
-    client = HyperliquidClient(
-        address='0x0000000000000000000000000000000000000000',
-        testnet=True,
-    )
+    # Initialize Kraken client (no auth needed for shadow/read-only)
+    client = KrakenClient()
     
     strategy = LiveStrategy(
         client=client,
@@ -147,7 +144,7 @@ def run_shadow(coin: str = 'BTC', interval_minutes: int = 5):
                     print(f"   P&L: {pos['unrealized_pnl']:+.2f}%")
             else:
                 # Just check current price for exit management
-                current_price = client.get_price(coin)
+                current_price = KrakenClient().get_price(coin)
                 if current_price and strategy.active_trade:
                     exit_reason = strategy.check_exit(current_price)
                     if exit_reason:
